@@ -1,0 +1,10 @@
+steps:
+# - name: 'gcr.io/cloud-builders/docker'
+#   args: [ 'build', '-t', 'gcr.io/ristkari-dev/rhack:0.1', '.' ]
+# - name: 'gcr.io/cloud-builders/docker'
+#   args: [ 'push', 'gcr.io/ristkari-dev/rhack:0.1' ]
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+    - --destination=gcr.io/ristkari-dev/rhack:0.2
+    - --cache=true
+    - --cache-ttl=12h
