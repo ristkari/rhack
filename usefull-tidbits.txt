@@ -1,0 +1,34 @@
+*cargo-plugins*
+cargo-watch
+cargo-edit
+cargo-modules
+cargo-audit
+cargo-tarpaulin (Linux only)
+cargo-make
+cargo-release
+
+
+*cargo separate install*
+nextest
+
+
+*rustup*
+clippy
+rustfmt
+
+
+*crates*
+serde (serialization)
+serde_json (serialization to json)
+anyhow (error handling)
+thiserror (error handling)
+tokio (async programming)
+log (logging)
+env_logger (logging with environment variables)
+pretty_env_logger (logging with environment variables, nice output)
+tracing (tracing tokio and async programming)
+chrono (time and date)
+reqwest (http client)
+tonic (grpc client)
+tonic-build (build protobuf during compilation)
+prost (protobuf)

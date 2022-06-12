@@ -1,0 +1,9 @@
+# Example rules
+# There can be multiple keys per path-regex if needed
+creation_rules:
+  # secrets / dev
+  - path_regex: secrets\/dev\/.*$
+    gcp_kms: projects/foundation-00001/locations/global/keyRings/sops/cryptoKeys/sops-key-dev
+  # secrets / prod
+  - path_regex: secrets/prod/.*$
+    gcp_kms: projects/foundation-00001/locations/global/keyRings/sops/cryptoKeys/sops-key-prod

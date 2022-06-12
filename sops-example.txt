@@ -1,0 +1,8 @@
+# Encrypt file with SOPS
+sops --encrypt --gcp-kms projects/foundation-00001/locations/global/keyRings/sops/cryptoKeys/dev-sops-key secret-file.json > secret-file.enc.json
+# Decrypt
+sops --decrypt secret-file.enc.json > secret-file.json
+
+
+# Edit encrypted file (honors $EDITOR)
+sops secret-file.enc.json

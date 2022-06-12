@@ -1,0 +1,5 @@
+
+*.enc diff=sopsdiffer
+*.enc.json diff=sopsdiffer
+*.enc.yaml diff=sopsdiffer
+*.enc.ini diff=sopsdiffer
