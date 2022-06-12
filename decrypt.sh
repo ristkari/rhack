@@ -1,5 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
 
-#!/bin/sh
 ENCRYPTED_FILES=`find . -type f -regex ".*\.enc\(\.yaml\|\.json\)?\$"`
 for FILE in ${ENCRYPTED_FILES}; do
   DECRYPTED_FILE=`echo "$FILE" | sed 's/.enc././g'`
