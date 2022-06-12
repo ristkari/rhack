@@ -1,10 +1,10 @@
-#!/bin/sh
-set -euo pipefail
+#!/usr/bin/env bash
+set -eo pipefail
 
 # If SOPS configuration is changed, force update
 # Check whether there's been changes to SOPS configuration and refresh if there has been
 
-SOPS_CHANGED=`git status -s | grep ".sops.yaml"`
+SOPS_CHANGED=`git status -s | grep ".sops.yaml" || true`
 FORCE=0
 if [ ! -z "$SOPS_CHANGED" ] || [ "$#" -eq 1 -a "$1" = "-f" -o "$1" = "--forced" ]; then
   FORCE=1
