@@ -12,4 +12,5 @@ path = "src/main.rs"
 aws-config = "0.11.0"
 aws-sdk-dynamodb = "0.11.0"
 tokio = { version = "1", features = ["full"] }
-actix-web = "4.0.1"
+actix-web = "4.1.0"
+redis = { version = "0.21.5", features = ["tokio-comp"] }
