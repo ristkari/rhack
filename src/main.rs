@@ -1,9 +1,36 @@
+#![allow(unused)] // silence unused warnings while exploring (to comment out)
+
+//mod asyncr;
+
 extern crate redis;
-use redis::AsyncCommands;
+use std::{error::Error, time::Duration};
+use tokio::time::sleep;
+
+use redis::{
+    from_redis_value,
+    streams::{StreamRangeReply, StreamReadOptions, StreamReadReply},
+    AsyncCommands, Client,
+};
+
+use redis::aio::ConnectionManager;
+use std::convert::Infallible;
 use std::env;
+use thiserror::Error;
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use aws_sdk_dynamodb::Client;
+//use aws_sdk_dynamodb::Client;
+
+const REDIS_CON_STRING: &str = "redis://127.0.0.1/";
+
+#[derive(Error, Debug)]
+pub enum DirectError {
+    #[error("error parsing string from redis result: {0}")]
+    RedisTypeError(redis::RedisError),
+    #[error("error executing redis command: {0}")]
+    RedisCMDError(redis::RedisError),
+    #[error("error creating Redis client: {0}")]
+    RedisClientError(redis::RedisError),
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -19,49 +46,67 @@ async fn manual_hello() -> impl Responder {
     HttpResponse::Ok().body("Hey hey there!")
 }
 
-async fn connect() -> Option<redis::Connection> {
-    //format - host:port
-    let redis_host_name =
-        env::var("REDIS_HOSTNAME").expect("missing environment variable REDIS_HOSTNAME");
-
-    let redis_password = env::var("REDIS_PASSWORD").unwrap_or_default(); //if Redis server needs secure connection
-    let uri_scheme = match env::var("IS_TLS") {
-        Ok(_) => "rediss",
-        Err(_) => "redis",
-    };
-    let redis_conn_url = format!("{}://:{}@{}", uri_scheme, redis_password, redis_host_name);
-    let client = redis::Client::open(redis_conn_url).unwrap();
-    client.get_async_connection().await?
-
-    //.expect("failed to connect to Redis");
-    //let client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    //let mut con = client.get_async_connection().await?;
-}
-
-async fn basics() {
-    let mut conn = connect();
-    let _: () = redis::cmd("SET")
-        .arg("foo")
-        .arg("bar")
-        .query(&mut conn)
-        .expect("failed to execute SET for 'foo'");
-    let bar: String = redis::cmd("GET")
-        .arg("foo")
-        .query(&mut conn)
-        .expect("failed to execute GET for 'foo'");
-    println!("value for 'foo' = {}", bar);
-    let _: () = conn
-        .incr("counter", 2)
-        .expect("failed to execute INCR for 'counter'");
-    let val: i32 = conn
-        .get("counter")
-        .expect("failed to execute GET for 'counter'");
-    println!("counter = {}", val);
-}
-
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
-    let redis_connection = connect().await;
+async fn main() -> Result<(), Box<dyn Error>> {
+    //let cm = asyncr::get_connection_manager();
+
+    let redis_host_name =
+        env::var("REDIS_HOSTNAME").expect("Missing environment variable REDIS_HOSTNAME");
+    let redis_tls = env::var("REDIS_TLS")
+        .map(|redis_tls| redis_tls == "1")
+        .unwrap_or(false);
+    let uri_scheme = match redis_tls {
+        true => "rediss",
+        false => "redis",
+    };
+
+    let redis_conn_url = format!("{}://{}", uri_scheme, redis_host_name);
+    let client = redis::Client::open(redis_conn_url).expect("Invalid connection URL");
+    let redis_connection_manager = client
+        .get_tokio_connection_manager()
+        .await
+        .expect("Can't create Redis connection manager");
+    let mut con = redis_connection_manager.clone();
+    con.del("kakka").await?;
+
+    let _: () = redis::pipe()
+        .atomic()
+        .set("kakka", "pylly")
+        .expire("kakka", 600)
+        .query_async(&mut con)
+        .await?;
+
+    // 1) Create Connection
+    let client = Client::open("redis://127.0.0.1/")?;
+    let mut con = client.get_tokio_connection().await?;
+
+    // 2) Set / Get Key
+    con.set("my_key", "Hello world!").await?;
+    let result: String = con.get("my_key").await?;
+    println!("->> my_key: {}\n", result);
+
+    // 3) xadd to redis stream
+    con.xadd(
+        "my_stream",
+        "*",
+        &[("name", "name-01"), ("title", "title 01")],
+    )
+    .await?;
+    let len: i32 = con.xlen("my_stream").await?;
+    println!("->> my_stream len {}\n", len);
+
+    // 4) xrevrange the read stream
+    let result: Option<StreamRangeReply> = con.xrevrange_count("my_stream", "+", "-", 10).await?;
+    if let Some(reply) = result {
+        for stream_id in reply.ids {
+            println!("->> xrevrange stream entity: {}  ", stream_id.id);
+            for (name, value) in stream_id.map.iter() {
+                println!("  ->> {}: {}", name, from_redis_value::<String>(value)?);
+            }
+            println!();
+        }
+    }
+
     /*
     let shared_config = aws_config::load_from_env().await;
     let client = Client::new(&shared_config);
