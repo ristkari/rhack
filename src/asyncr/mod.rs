@@ -22,8 +22,15 @@ pub async fn get_connection_manager() -> redis::aio::ConnectionManager {
 
     let redis_conn_url = format!("{}://{}", uri_scheme, redis_host_name);
     let client = redis::Client::open(redis_conn_url).expect("Invalid connection URL");
-    let redis = client.get_tokio_connection_manager().await?.unwrap();
+    let redis = client.get_tokio_connection_manager().await;
     //.unwrap();
     //let redis = ConnectionManager::new(client.clone()).await.unwrap();
-    redis
+    match client.get_tokio_connection_manager().await {
+        Ok(res) => return res,
+        Err(e) => {
+            println!("Error: {}", e);
+            panic!("Error: {}", e);
+        }
+    }
+    //redis
 }

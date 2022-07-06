@@ -1,6 +1,6 @@
 #![allow(unused)] // silence unused warnings while exploring (to comment out)
 
-//mod asyncr;
+mod asyncr;
 
 extern crate redis;
 use std::{error::Error, time::Duration};
@@ -47,8 +47,18 @@ async fn manual_hello() -> impl Responder {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    //let cm = asyncr::get_connection_manager();
+async fn main() -> //Result<(), std::io::Error> {
+    Result<(), Box<dyn Error>> {
+    let cm = asyncr::get_connection_manager().await;
+    let mut my_con = cm.clone();
+    let _: () = redis::pipe()
+        .atomic()
+        .set("pylly", "kakka")
+        .expire("pylly", 600)
+        .query_async(&mut my_con)
+        .await?;
+
+    panic!("oh noes");
 
     let redis_host_name =
         env::var("REDIS_HOSTNAME").expect("Missing environment variable REDIS_HOSTNAME");
