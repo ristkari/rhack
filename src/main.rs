@@ -1,8 +1,11 @@
 #![allow(unused)] // silence unused warnings while exploring (to comment out)
 
-mod asyncr;
+mod redis_datastore;
 
 extern crate redis;
+use redis_datastore::connection_manager;
+use serde::{Deserialize, Serialize};
+use serde_json::Result as sj;
 use std::{error::Error, time::Duration};
 use tokio::time::sleep;
 
@@ -22,16 +25,6 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 
 const REDIS_CON_STRING: &str = "redis://127.0.0.1/";
 
-#[derive(Error, Debug)]
-pub enum DirectError {
-    #[error("error parsing string from redis result: {0}")]
-    RedisTypeError(redis::RedisError),
-    #[error("error executing redis command: {0}")]
-    RedisCMDError(redis::RedisError),
-    #[error("error creating Redis client: {0}")]
-    RedisClientError(redis::RedisError),
-}
-
 #[get("/")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
@@ -42,80 +35,54 @@ async fn echo(req_body: String) -> impl Responder {
     HttpResponse::Ok().body(req_body)
 }
 
+#[get("/person")]
+async fn person(req_body: String) -> impl Responder {
+    let p = Person {
+        name: "John".to_string(),
+        age: 30,
+        phones: vec!["123-456-7890".to_string(), "123-456-7891".to_string()],
+    };
+    HttpResponse::Ok().body(serde_json::to_string(&p).unwrap())
+}
+
 async fn manual_hello() -> impl Responder {
     HttpResponse::Ok().body("Hey hey there!")
 }
 
+#[derive(Serialize, Deserialize)]
+struct Person {
+    name: String,
+    age: u8,
+    phones: Vec<String>,
+}
+
 #[tokio::main]
-async fn main() -> //Result<(), std::io::Error> {
-    Result<(), Box<dyn Error>> {
-    let cm = asyncr::get_connection_manager().await;
-    let mut my_con = cm.clone();
+async fn main() -> Result<(), Box<dyn Error>> {
+    //let cm = redis_datastore::connection_manager::get_connection_manager().await;
+    let mut my_con = match redis_datastore::connection_manager::get_connection_manager().await {
+        Ok(res) => {
+            println!("{:?}", "Got Connection Manager");
+            res.clone()
+        }
+        Err(e) => {
+            //println!("{:?}", e);
+            println!("{}", e);
+            panic!("oh noes");
+        }
+    };
+
+    let p = Person {
+        name: "John".to_string(),
+        age: 30,
+        phones: vec!["123-456-7890".to_string(), "123-456-7891".to_string()],
+    };
+
     let _: () = redis::pipe()
         .atomic()
-        .set("pylly", "kakka")
+        .set("pylly", serde_json::to_string(&p).unwrap())
         .expire("pylly", 600)
         .query_async(&mut my_con)
         .await?;
-
-    panic!("oh noes");
-
-    let redis_host_name =
-        env::var("REDIS_HOSTNAME").expect("Missing environment variable REDIS_HOSTNAME");
-    let redis_tls = env::var("REDIS_TLS")
-        .map(|redis_tls| redis_tls == "1")
-        .unwrap_or(false);
-    let uri_scheme = match redis_tls {
-        true => "rediss",
-        false => "redis",
-    };
-
-    let redis_conn_url = format!("{}://{}", uri_scheme, redis_host_name);
-    let client = redis::Client::open(redis_conn_url).expect("Invalid connection URL");
-    let redis_connection_manager = client
-        .get_tokio_connection_manager()
-        .await
-        .expect("Can't create Redis connection manager");
-    let mut con = redis_connection_manager.clone();
-    con.del("kakka").await?;
-
-    let _: () = redis::pipe()
-        .atomic()
-        .set("kakka", "pylly")
-        .expire("kakka", 600)
-        .query_async(&mut con)
-        .await?;
-
-    // 1) Create Connection
-    let client = Client::open("redis://127.0.0.1/")?;
-    let mut con = client.get_tokio_connection().await?;
-
-    // 2) Set / Get Key
-    con.set("my_key", "Hello world!").await?;
-    let result: String = con.get("my_key").await?;
-    println!("->> my_key: {}\n", result);
-
-    // 3) xadd to redis stream
-    con.xadd(
-        "my_stream",
-        "*",
-        &[("name", "name-01"), ("title", "title 01")],
-    )
-    .await?;
-    let len: i32 = con.xlen("my_stream").await?;
-    println!("->> my_stream len {}\n", len);
-
-    // 4) xrevrange the read stream
-    let result: Option<StreamRangeReply> = con.xrevrange_count("my_stream", "+", "-", 10).await?;
-    if let Some(reply) = result {
-        for stream_id in reply.ids {
-            println!("->> xrevrange stream entity: {}  ", stream_id.id);
-            for (name, value) in stream_id.map.iter() {
-                println!("  ->> {}: {}", name, from_redis_value::<String>(value)?);
-            }
-            println!();
-        }
-    }
 
     /*
     let shared_config = aws_config::load_from_env().await;
@@ -131,6 +98,7 @@ async fn main() -> //Result<(), std::io::Error> {
         App::new()
             .service(hello)
             .service(echo)
+            .service(person)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(("127.0.0.1", 8080))?
