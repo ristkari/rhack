@@ -1,0 +1,6 @@
+[12:57:08][app::logger][DEBUG] DEBUG output enabled
+[12:57:08][app::logger][INFO] INFO output enabled
+[12:57:08][app::logger][WARN] WARN output enabled
+[12:57:08][app::logger][ERROR] ERROR output enabled
+[12:57:08][actix_server::builder][INFO] Starting 4 workers
+[12:57:08][actix_server::server][INFO] Tokio runtime found; starting in existing Tokio runtime
