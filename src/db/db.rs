@@ -1,3 +1,5 @@
+// use std::async_iter;
+
 use crate::data::person::Person;
 use crate::StdErr;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
@@ -21,6 +23,24 @@ impl Db {
     pub async fn persons(&self, id: String) -> Result<Vec<Person>, StdErr> {
         let persons = sqlx::query_as("SELECT * FROM persons as p where p.id = $1")
             .bind(id)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(persons)
+    }
+
+    pub async fn create_person(&self, person: Person) -> Result<Person, StdErr> {
+        let person =
+            sqlx::query_as("INSERT INTO persons (id, name, age) VALUES ($1, $2, $3) RETURNING *")
+                .bind(person.id)
+                .bind(person.name)
+                .bind(person.age)
+                .fetch_one(&self.pool)
+                .await?;
+        Ok(person)
+    }
+
+    pub async fn get_all_persons(&self) -> Result<Vec<Person>, StdErr> {
+        let persons = sqlx::query_as("SELECT * FROM persons")
             .fetch_all(&self.pool)
             .await?;
         Ok(persons)
