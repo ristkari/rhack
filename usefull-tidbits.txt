@@ -1,5 +1,3 @@
-
-
 *cargo-plugins*
 cargo-watch
 cargo-edit
